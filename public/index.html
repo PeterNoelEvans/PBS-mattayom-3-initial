@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to English Assessment</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+            background-color: #f5f5f5;
+        }
+        .auth-container {
+            margin-top: 40px;
+            padding: 30px;
+            border-radius: 10px;
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        input:focus {
+            outline: none;
+            border-color: #2196F3;
+        }
+        .button {
+            padding: 12px 24px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .button:hover {
+            background-color: #1976D2;
+        }
+        .error {
+            color: #f44336;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #ffebee;
+            display: none;
+        }
+        .welcome-text {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .step {
+            display: none;
+        }
+        .step.active {
+            display: block;
+        }
+        .description {
+            color: #666;
+            margin: 15px 0;
+        }
+        .admin-link {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            color: #666;
+            text-decoration: none;
+            font-size: 12px;
+        }
+        .admin-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome to English Assessment</h1>
+    <p class="welcome-text">Please enter your nickname to begin</p>
+
+    <div class="auth-container">
+        <!-- Step 1: Enter Nickname -->
+        <div id="step1" class="step active">
+            <h2>Enter Your Nickname</h2>
+            <p class="description">If you're a returning student, use your existing nickname</p>
+            <form onsubmit="handleNicknameSubmit(event)">
+                <div class="form-group">
+                    <label for="nickname">Nickname:</label>
+                    <input 
+                        type="text" 
+                        id="nickname" 
+                        placeholder="Enter your nickname"
+                        required
+                        autocomplete="off"
+                    >
+                </div>
+                <button type="submit" class="button">Continue</button>
+            </form>
+        </div>
+
+        <!-- Step 2: Enter Name (Only for new students) -->
+        <div id="step2" class="step">
+            <h2>Welcome New Student!</h2>
+            <p class="description">Please enter your full name to complete registration</p>
+            <form onsubmit="handleNameSubmit(event)">
+                <div class="form-group">
+                    <label for="fullName">Full Name:</label>
+                    <input 
+                        type="text" 
+                        id="fullName" 
+                        placeholder="Enter your full name"
+                        required
+                        autocomplete="off"
+                    >
+                </div>
+                <button type="submit" class="button">Start Assessment</button>
+            </form>
+        </div>
+
+        <div id="errorMessage" class="error"></div>
+    </div>
+
+    <a href="/admin-login.html" class="admin-link">Admin Login</a>
+
+    <script>
+        let currentNickname = '';
+
+        function showStep(stepNumber) {
+            document.querySelectorAll('.step').forEach(step => {
+                step.classList.remove('active');
+            });
+            document.getElementById(`step${stepNumber}`).classList.add('active');
+        }
+
+        async function handleNicknameSubmit(event) {
+            event.preventDefault();
+            const nickname = document.getElementById('nickname').value.trim();
+            currentNickname = nickname;
+
+            if (nickname.length < 3) {
+                showError('Nickname must be at least 3 characters long');
+                return;
+            }
+
+            try {
+                // Try to login with nickname
+                const loginResponse = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ nickname })
+                });
+
+                const loginData = await loginResponse.json();
+
+                if (loginData.success) {
+                    // Existing student - login successful
+                    localStorage.setItem('token', loginData.token);
+                    localStorage.setItem('studentName', loginData.student.name);
+                    window.location.href = '/dashboard.html';
+                } else {
+                    // New student - show name input
+                    showStep(2);
+                }
+            } catch (error) {
+                showError('An error occurred. Please try again.');
+                console.error('Auth error:', error);
+            }
+        }
+
+        async function handleNameSubmit(event) {
+            event.preventDefault();
+            const fullName = document.getElementById('fullName').value.trim();
+            
+            if (fullName.length < 2) {
+                showError('Please enter a valid name');
+                return;
+            }
+
+            try {
+                // Register new student
+                const registerResponse = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        name: fullName, 
+                        nickname: currentNickname 
+                    })
+                });
+
+                const registerData = await registerResponse.json();
+
+                if (registerData.success) {
+                    localStorage.setItem('token', registerData.token);
+                    localStorage.setItem('studentName', registerData.student.name);
+                    window.location.href = '/dashboard.html';
+                } else {
+                    showError(registerData.error || 'Registration failed');
+                }
+            } catch (error) {
+                showError('An error occurred. Please try again.');
+                console.error('Registration error:', error);
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Clear any existing auth data
+        localStorage.removeItem('token');
+        localStorage.removeItem('studentName');
+    </script>
+</body>
+</html>

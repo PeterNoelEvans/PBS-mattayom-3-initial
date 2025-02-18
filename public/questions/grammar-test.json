@@ -1,0 +1,19 @@
+{
+  "title": "Grammar Assessment",
+  "description": "Test your understanding of English grammar concepts",
+  "timeLimit": 60,
+  "questions": [
+    {
+      "id": 1,
+      "text": "Choose the correct form of the verb to complete the sentence: She _____ to school every day.",
+      "options": [
+        { "id": "a", "text": "walk" },
+        { "id": "b", "text": "walks" },
+        { "id": "c", "text": "walking" },
+        { "id": "d", "text": "walked" }
+      ],
+      "correctAnswer": "b",
+      "topic": "Verb Forms"
+    }
+  ]
+} 

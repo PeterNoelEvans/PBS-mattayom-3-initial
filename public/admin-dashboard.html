@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - M3 Project Book</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        .primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .primary:hover {
+            background-color: #0056b3;
+        }
+        .danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        .danger:hover {
+            background-color: #c82333;
+        }
+        .content {
+            display: none;
+        }
+        .content.active {
+            display: block;
+        }
+        .question-set {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .student-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .student-row:hover {
+            background-color: #f8f9fa;
+        }
+        .tab-buttons {
+            margin-bottom: 20px;
+        }
+        .tab-button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            border: none;
+            background-color: #e9ecef;
+            cursor: pointer;
+        }
+        .tab-button.active {
+            background-color: #007bff;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Admin Dashboard</h1>
+            <div class="nav-buttons">
+                <button onclick="handleLogout()" class="button danger">Logout</button>
+            </div>
+        </div>
+
+        <div class="tab-buttons">
+            <button onclick="showTab('questions')" class="tab-button active">Question Sets</button>
+            <button onclick="showTab('students')" class="tab-button">Student Progress</button>
+        </div>
+
+        <!-- Question Sets Management -->
+        <div id="questions-content" class="content active">
+            <div class="action-buttons">
+                <button onclick="window.location.href='/admin-edit-set.html'" class="button primary">Create New Question Set</button>
+            </div>
+            <div id="questionSets"></div>
+        </div>
+
+        <!-- Student Progress -->
+        <div id="students-content" class="content">
+            <div id="studentList"></div>
+        </div>
+    </div>
+
+    <script>
+        // Check admin authentication
+        if (!localStorage.getItem('adminToken')) {
+            window.location.href = '/admin-login.html';
+        }
+
+        function showTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Show selected content
+            document.querySelectorAll('.content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`${tabName}-content`).classList.add('active');
+
+            // Load content
+            if (tabName === 'questions') {
+                loadQuestionSets();
+            } else if (tabName === 'students') {
+                loadStudentProgress();
+            }
+        }
+
+        async function loadQuestionSets() {
+            try {
+                const response = await fetch('/api/question-sets');
+                const sets = await response.json();
+                const container = document.getElementById('questionSets');
+                
+                container.innerHTML = sets.map((set, index) => `
+                    <div class="question-set">
+                        <h3>${set.name || 'Unnamed Set'}</h3>
+                        <p>Set ID: ${set.setId || 'No ID'}</p>
+                        <p>Title: ${set.title || 'No Title'}</p>
+                        <p>Questions: ${set.questions ? set.questions.length : 0}</p>
+                        <button onclick="editSet(${index + 1})" class="button primary">Edit</button>
+                        <button onclick="deleteSet(${index + 1})" class="button danger">Delete</button>
+                    </div>
+                `).join('');
+
+                if (sets.length === 0) {
+                    container.innerHTML = '<p>No question sets found. Click "Create New Question Set" to add one.</p>';
+                }
+            } catch (error) {
+                console.error('Error loading question sets:', error);
+                document.getElementById('questionSets').innerHTML = 
+                    '<p class="error">Error loading question sets. Please try again.</p>';
+            }
+        }
+
+        async function loadStudentProgress() {
+            try {
+                const response = await fetch('/api/admin/students');
+                const students = await response.json();
+                const container = document.getElementById('studentList');
+                
+                container.innerHTML = students.map(student => `
+                    <div class="student-row">
+                        <div>
+                            <strong>${student.name}</strong> (${student.nickname})
+                        </div>
+                        <div>
+                            Sets Completed: ${student.completedSets}
+                            | Average Score: ${student.averageScore}%
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading student progress:', error);
+            }
+        }
+
+        function createNewSet() {
+            // Redirect to question set editor
+            window.location.href = '/admin-edit-set.html';
+        }
+
+        function editSet(setNumber) {
+            window.location.href = `/admin-edit-set.html?set=${setNumber}`;
+        }
+
+        async function deleteSet(setNumber) {
+            if (confirm(`Are you sure you want to delete Set ${setNumber}?`)) {
+                try {
+                    await fetch(`/api/question-sets/${setNumber}`, {
+                        method: 'DELETE'
+                    });
+                    loadQuestionSets();
+                } catch (error) {
+                    console.error('Error deleting set:', error);
+                }
+            }
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('adminToken');
+            window.location.href = '/admin-login.html';
+        }
+
+        // Load question sets initially
+        loadQuestionSets();
+    </script>
+</body>
+</html> 

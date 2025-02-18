@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>m3project-book - Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .auth-forms { margin-bottom: 40px; }
+        .hidden { display: none; }
+        .auth-toggle { margin-top: 10px; color: blue; cursor: pointer; text-decoration: underline; }
+        button { padding: 8px 16px; cursor: pointer; }
+        input { padding: 5px; margin: 5px 0; width: 200px; }
+        .form-group { margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <h1>M3 Project-book</h1>
+
+    <!-- Authentication Forms -->
+    <div class="auth-forms" id="authForms">
+        <!-- Login Form -->
+        <div id="loginForm">
+            <h2>Login</h2>
+            <form id="loginFormElement">
+                <div class="form-group">
+                    <label for="loginEmail">Email:</label><br>
+                    <input type="email" id="loginEmail" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password:</label><br>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit">Login</button>
+            </form>
+            <p class="auth-toggle" onclick="toggleAuthForm()">New user? Register here</p>
+        </div>
+
+        <!-- Registration Form -->
+        <div id="registrationForm" class="hidden">
+            <h2>Register</h2>
+            <form id="registrationFormElement">
+                <div class="form-group">
+                    <label for="name">Name:</label><br>
+                    <input type="text" id="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email:</label><br>
+                    <input type="email" id="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label><br>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit">Register</button>
+            </form>
+            <p class="auth-toggle" onclick="toggleAuthForm()">Already registered? Login here</p>
+        </div>
+    </div>
+
+    <script>
+        // Check if already logged in
+        if (localStorage.getItem('token')) {
+            window.location.href = '/dashboard.html';
+        }
+
+        function toggleAuthForm() {
+            document.getElementById('loginForm').classList.toggle('hidden');
+            document.getElementById('registrationForm').classList.toggle('hidden');
+        }
+
+        // Registration Form Handler
+        document.getElementById('registrationFormElement').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, email, password })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('studentName', data.student.name);
+                    window.location.href = '/dashboard.html';
+                } else {
+                    if (data.error.includes('duplicate key error')) {
+                        alert('This email is already registered. Please login instead.');
+                        toggleAuthForm();
+                    } else {
+                        alert('Registration failed: ' + data.error);
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Registration failed. Please try again.');
+            }
+        });
+
+        // Login Form Handler
+        document.getElementById('loginFormElement').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('studentName', data.student.name);
+                    window.location.href = '/dashboard.html';
+                } else {
+                    alert('Login failed: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('Login failed: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html> 

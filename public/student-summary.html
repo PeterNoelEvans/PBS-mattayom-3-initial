@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Performance Summary</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 1000px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .summary-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            background-color: #f9f9f9;
+        }
+        .performance-indicator {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 15px;
+            color: white;
+            font-weight: bold;
+            margin: 5px;
+        }
+        .high { background-color: #4CAF50; }
+        .medium { background-color: #FFA500; }
+        .low { background-color: #f44336; }
+        .chart-container {
+            margin: 20px 0;
+            height: 300px;
+        }
+        .recommendations {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+            color: #666;
+        }
+        .error {
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="nav-buttons">
+        <button onclick="window.location.href='/dashboard.html'" class="button">Back to Dashboard</button>
+        <span id="studentName"></span>
+    </div>
+
+    <h1>Performance Summary</h1>
+
+    <div id="loadingMessage" class="loading">Loading summary...</div>
+    <div id="errorMessage" class="error" style="display: none;"></div>
+
+    <div id="summaryContent" style="display: none;">
+        <div class="summary-card">
+            <h2>Overall Progress</h2>
+            <div id="overallStats"></div>
+            <div class="chart-container">
+                <canvas id="performanceChart"></canvas>
+            </div>
+        </div>
+
+        <div class="summary-card">
+            <h2>Section Analysis</h2>
+            <div id="sectionAnalysis"></div>
+        </div>
+
+        <div class="summary-card">
+            <h2>Recommendations</h2>
+            <div id="recommendations" class="recommendations"></div>
+        </div>
+    </div>
+
+    <script>
+        // Check authentication
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/index.html';
+        }
+
+        // Display student name
+        document.getElementById('studentName').textContent = 
+            `Student: ${localStorage.getItem('studentName')}`;
+
+        // Load student summary
+        async function loadSummary() {
+            const loadingMessage = document.getElementById('loadingMessage');
+            const errorMessage = document.getElementById('errorMessage');
+            const summaryContent = document.getElementById('summaryContent');
+
+            try {
+                loadingMessage.style.display = 'block';
+                errorMessage.style.display = 'none';
+                summaryContent.style.display = 'none';
+
+                const response = await fetch('/api/student/summary', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to load summary');
+                }
+
+                // Display the data
+                displayOverallStats(data);
+                createPerformanceChart(data);
+                displaySectionAnalysis(data);
+                displayRecommendations(data);
+
+                // Show content
+                loadingMessage.style.display = 'none';
+                summaryContent.style.display = 'block';
+            } catch (error) {
+                console.error('Error loading summary:', error);
+                errorMessage.textContent = error.message;
+                errorMessage.style.display = 'block';
+                loadingMessage.style.display = 'none';
+            }
+        }
+
+        function displayOverallStats(data) {
+            const statsDiv = document.getElementById('overallStats');
+            const completedSections = data.sections.filter(s => s.completed).length;
+            const averageScore = data.sections.reduce((acc, s) => acc + s.score, 0) / data.sections.length;
+            
+            statsDiv.innerHTML = `
+                <p>Completed Sections: ${completedSections}/${data.sections.length}</p>
+                <p>Average Score: ${averageScore.toFixed(1)}%</p>
+                <p>Overall Status: 
+                    <span class="performance-indicator ${getPerformanceClass(averageScore)}">
+                        ${getPerformanceLabel(averageScore)}
+                    </span>
+                </p>
+            `;
+        }
+
+        function createPerformanceChart(data) {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.sections.map(s => s.title),
+                    datasets: [{
+                        label: 'Score (%)',
+                        data: data.sections.map(s => s.score),
+                        backgroundColor: data.sections.map(s => getColorForScore(s.score))
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        }
+
+        function displaySectionAnalysis(data) {
+            const analysisDiv = document.getElementById('sectionAnalysis');
+            data.sections.forEach(section => {
+                let html = `
+                    <div class="section-summary">
+                        <h3>${section.title}</h3>
+                        <p>Score: ${section.score}% 
+                            <span class="performance-indicator ${getPerformanceClass(section.score)}">
+                                ${getPerformanceLabel(section.score)}
+                            </span>
+                        </p>
+                        <p>Areas for Improvement:</p>
+                        <ul>
+                            ${section.weakAreas ? section.weakAreas.map(area => `<li>${area}</li>`).join('') : '<li>No weak areas identified</li>'}
+                        </ul>
+                    </div>
+                `;
+                analysisDiv.innerHTML += html;
+            });
+        }
+
+        function displayRecommendations(data) {
+            const recsDiv = document.getElementById('recommendations');
+            recsDiv.innerHTML = `
+                <h3>Suggested Focus Areas:</h3>
+                <ul>
+                    ${data.recommendations.map(rec => `
+                        <li>
+                            <strong>${rec.area}:</strong> ${rec.description}
+                            ${rec.resources ? `<br>Resources: ${rec.resources}` : ''}
+                        </li>
+                    `).join('')}
+                </ul>
+            `;
+        }
+
+        function getPerformanceClass(score) {
+            if (score >= 80) return 'high';
+            if (score >= 60) return 'medium';
+            return 'low';
+        }
+
+        function getPerformanceLabel(score) {
+            if (score >= 80) return 'Excellent';
+            if (score >= 60) return 'Good';
+            return 'Needs Improvement';
+        }
+
+        function getColorForScore(score) {
+            if (score >= 80) return '#4CAF50';
+            if (score >= 60) return '#FFA500';
+            return '#f44336';
+        }
+
+        // Load summary when page loads
+        loadSummary();
+    </script>
+</body>
+</html> 
